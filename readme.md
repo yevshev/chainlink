@@ -40,12 +40,57 @@ UI and log in with the example credentials in `/.api`:
 Inside the Web UI you'll notice two bridges have already been created, one 
 for each of our external adapters.  
 
-
+In the `docker-compose.yml` file, under the `command` option, the shell script
+includes the chainlink node CLI commands:
+```
+chainlink bridges create /chainlink/coingecko.json &&
+chainlink bridges create /chainlink/coinpaprika.json
+```
+that created the bridges from the json definitions:
+```json
+{
+    "name":"coinGecko",
+    "url":"http://coingecko:8080"
+}
+```
+```json
+{
+    "name":"coinPaprika",
+    "url":"http://coinpaprika:8080"
+}
+```
 ## Jobs
 An example chainlink job has also been created and it has already completed 
 it's first run: A simple webook job that gets the price quote for ETH in USD, 
 from both coingecko and coinpaprika, and calculates the average between the 
 two values. 
+
+The chainlink node CLI commands in the shell script under the `command` option
+in the `docker-compose.yml` file:
+```
+chainlink jobs create /chainlink/quote_average.toml &&
+chainlink jobs run 1
+```
+
+created and ran the job defined in the toml file
+```toml
+type = "webhook"
+schemaVersion = 1
+name = "ETH-quote-average"
+observationSource = """
+
+    coingecko_quote [type=bridge name="coingecko" requestData=<{"id": 0, "data": {"base": "ETH", "quote": "USD"}}>]
+    parse_cg [type=jsonparse path="data,result"]
+
+    coinpaprika_quote [type=bridge name="coinpaprika" requestData=<{"id": 0, "data": {"base": "ETH", "quote": "USD"}}>]
+    parse_cp [type=jsonparse path="data,result"]
+
+    coingecko_quote -> parse_cg -> quote_average
+    coinpaprika_quote -> parse_cp -> quote_average
+
+    quote_average [type=median]
+"""
+```
 
 ## Cleaning Up
 
