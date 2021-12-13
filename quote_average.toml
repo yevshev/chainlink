@@ -1,0 +1,16 @@
+type = "webhook"
+schemaVersion = 1
+name = "ETH-quote-average"
+observationSource = """
+
+    coingecko_quote [type=bridge name="coingecko" requestData=<{"id": 0, "data": {"base": "ETH", "quote": "USD"}}>]
+    parse_cg [type=jsonparse path="data,result"]
+
+    coinpaprika_quote [type=bridge name="coinpaprika" requestData=<{"id": 0, "data": {"base": "ETH", "quote": "USD"}}>]
+    parse_cp [type=jsonparse path="data,result"]
+
+    coingecko_quote -> parse_cg -> quote_average
+    coinpaprika_quote -> parse_cp -> quote_average
+
+    quote_average [type=median]
+"""

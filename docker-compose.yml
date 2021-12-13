@@ -1,0 +1,76 @@
+version: "3"
+
+services:
+
+  node:
+    image: smartcontract/chainlink:1.0.1
+    restart: always
+    ports:
+      - "6688:6688"
+    environment:
+      ROOT: /chainlink
+      LOG_LEVEL: debug
+      ETH_CHAIN_ID: 1
+      CHAINLINK_TLS_PORT: 0
+      SECURE_COOKIES: "false"
+      GAS_UPDATER_ENABLED: "true"
+      ALLOW_ORIGINS: "*"
+      ETH_URL: "ws://geth:8546"
+      DATABASE_URL: "postgresql://postgres:${DB_PASSWORD}@db:5432/chainlinkdb?sslmode=disable"
+      FEATURE_WEBHOOK_V2: "true"
+      CHAINLINK_DEV: "true"
+    volumes:
+      - "./:/chainlink/:z"
+    depends_on:
+      - db
+      - geth
+      - coingecko
+      - coinpaprika
+    entrypoint: /bin/sh -c
+    command: >
+        "chainlink local n -p /chainlink/.password -a /chainlink/.api &
+         { sleep 5 && chainlink admin login -f /chainlink/.api ;} &&
+         chainlink bridges create /chainlink/coingecko.json &&
+         chainlink bridges create /chainlink/coinpaprika.json &&
+         chainlink jobs create /chainlink/quote_average.toml &&
+         chainlink jobs run 1 &&
+         sleep infinity"
+
+  db: 
+    image: postgres
+    restart: always
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: chainlinkdb
+ 
+  geth:
+    image: ethereum/client-go
+    restart: always
+    ports:
+      - "8546:8546"
+    command:
+      - --ws
+      - --ipcdisable
+      - --ws.addr=0.0.0.0 
+      - --ws.origins="*" 
+      - --verbosity=1
+
+  coingecko:
+    image: public.ecr.aws/chainlink/adapters/coingecko-adapter:latest
+    restart: always
+    expose:
+      - "8080"
+    environment:
+      RATE_LIMIT_API_PROVIDER: coingecko
+      RATE_LIMIT_API_TIER: free
+
+  coinpaprika:
+    image: public.ecr.aws/chainlink/adapters/coinpaprika-adapter:latest
+    restart: always
+    expose:
+      - "8080"
+    environment:
+      RATE_LIMIT_API_PROVIDER: coinpaprika
+      RATE_LIMIT_API_TIER: free
